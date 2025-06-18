@@ -1,0 +1,41 @@
+// PRIMA PARTE: creazione nodo "Tweet"
+LOAD CSV WITH HEADERS FROM 'file:///dataset.csv' AS row
+MERGE (t:Tweet {
+  date: row.Date,
+  text: row.`Text`
+})
+SET t.retweets = toInteger(row.Retweets),
+    t.likes = toInteger(row.Likes),
+    t.topic = row.topic,
+    t.confidence = toFloat(row.confidence),
+    t.sentiment = row.sentiment,
+    t.sentiment_confidence = toFloat(row.sentiment_confidence),
+    t.author = row.Author;
+
+
+// SECONDA PARTE: creazione nodi "Entity" e relazioni "MENTIONS"
+LOAD CSV WITH HEADERS FROM 'file:///dataset.csv' AS row
+
+// Pulizia della colonna entities per ottenere una lista piatta
+WITH row, replace(replace(replace(replace(replace(replace(row.entities, "[[", ""), "]]", ""), "[", ""), "]", ""), "'", ""), "\"", "") AS cleaned
+
+// Splitting in una lista di parti: entity1, type1, entity2, type2, ...
+WITH row, split(cleaned, ", ") AS parts
+
+// Raggruppamento in coppie {name, type}
+WITH row, [i IN range(0, size(parts)-1) 
+           WHERE i % 2 = 0 AND i + 1 < size(parts) 
+           | {name: trim(parts[i]), type: trim(parts[i+1])}] AS entityTuples
+
+UNWIND entityTuples AS entity
+
+// Evita entità vuote
+WITH row, entity
+WHERE entity.name IS NOT NULL AND entity.type IS NOT NULL AND entity.name <> "" AND entity.type <> ""
+
+MERGE (e:Entity {name: entity.name, type: entity.type})
+
+// Collegamento del tweet corrispondente
+WITH row, e
+MATCH (t:Tweet {date: row.Date, text: row.`Text`})
+MERGE (t)-[:MENTIONS]->(e);

@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+pydantic
+jinja2
+neo4j
+python-dotenv
+faiss-cpu
+sentence-transformers
+spacy
+openai
